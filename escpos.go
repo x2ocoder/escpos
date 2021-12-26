@@ -455,6 +455,84 @@ func (e *Escpos) FeedAndCut(params map[string]string) {
 }
 
 // Barcode sends a barcode to the printer.
+/*
+n=0: Select PDF417(default) binary barcode.
+n=1: Select DataMatrix binary barcode.
+n=2: Select QR-CODE binary barcode.
+*/
+func (e *Escpos) TwodType(mode int) {
+	fmt.Printf("KNOWN BAD")
+	e.Write(fmt.Sprintf("\x1dZ%d", mode))
+}
+func (e *Escpos) QrECQuality() {
+	fmt.Printf("KNOWN BAD")
+	l := byte(0x03) // cmdlen l
+	h := byte(0x00) // cmdlen h
+	cn := byte(49)
+	fn := byte(69)
+	n := byte(48) // 48-51
+	cmd := []byte{0x1D, 0x2B, 0x6B, l, h, cn, fn, n}
+	e.Write(string(cmd))
+}
+
+func (e *Escpos) QrPrep(bb []byte) {
+	fmt.Printf("KNOWN BAD")
+	fmt.Printf("QrPrep Start\n")
+	clen := 3 + len(bb)
+	l := byte(clen & 0xFF)        // cmdlen l
+	h := byte((clen >> 8) & 0xFF) // cmdlen h
+	cn := byte(49)
+	fn := byte(80)
+	m := byte(48)
+	cmd := []byte{0x1D, 0x2B, 0x6B, l, h, cn, fn, m}
+	fmt.Printf("QrPrep CMD\n")
+	e.Write(string(cmd))
+	fmt.Printf("QrPrep Data\n")
+	e.Write(string(bb))
+}
+func (e *Escpos) QrPrint() {
+	fmt.Printf("KNOWN BAD")
+	fmt.Printf("QrPrint Start\n")
+	clen := 3
+	l := byte(clen & 0xFF)        // cmdlen l
+	h := byte((clen >> 8) & 0xFF) // cmdlen h
+	cn := byte(49)
+	fn := byte(81)
+	m := byte(48)
+	cmd := []byte{0x1D, 0x2B, 0x6B, l, h, cn, fn, m}
+	e.Write(string(cmd))
+}
+
+func (e *Escpos) OldTwodPrint(bb []byte) {
+	fmt.Printf("KNOWN BAD")
+	mode := byte('Z')
+	m := byte(0x00) // char version
+	n := byte(0x03) /* error correction quality */
+	//k := byte(0x00)                  // unknown
+	l := byte(len(bb) & 0xFF)        // len lower
+	h := byte((len(bb) >> 8) & 0xFF) // len higher
+
+	//cmd := []byte{0x1B, mode, m, n, k, l, h}
+	cmd := []byte{0x1B, mode, m, n, l, h}
+	e.Write(string(cmd))
+	e.Write(string(bb))
+	//cmd = append(cmd[:], bb[:]...)
+
+	//fmt.Sprintf("\x1b%c%c%c%c%c%c%v", mode, m, n, k, l, h, bb)
+	//e.Write(fmt.Sprintf("\x1b%c%c%c%c%c%c%v", mode, m, n, k, l, h, bb))
+}
+
+// Barcode sends a barcode to the printer.
+func (e *Escpos) BarcodeHeight(dots int) {
+	e.Write(fmt.Sprintf("\x1dh%d", dots))
+}
+
+// Barcode sends a barcode to the printer.
+func (e *Escpos) BarcodeHRIPosition(position int) {
+	e.Write(fmt.Sprintf("\x1dH%d", position))
+}
+
+// Barcode sends a barcode to the printer.
 func (e *Escpos) Barcode(barcode string, format int) {
 	code := ""
 	switch format {
@@ -476,15 +554,18 @@ func (e *Escpos) Barcode(barcode string, format int) {
 	e.reset()
 
 	// set align
-	e.SetAlign("center")
+	//e.SetAlign("center")
 
 	// write barcode
-	if format > 69 {
-		e.Write(fmt.Sprintf("\x1dk"+code+"%v%v", len(barcode), barcode))
-	} else if format < 69 {
+	fmt.Printf("Format Barcode Start\n")
+	if format > 64 {
+		fmt.Printf("Barcode format > 69: %d; NUL Term\n", format)
 		e.Write(fmt.Sprintf("\x1dk"+code+"%v\x00", barcode))
+	} else if format < 69 {
+		fmt.Printf("Barcode format < 69: %d\n", format)
+		e.Write(fmt.Sprintf("\x1dk"+code+"%c%v", len(barcode), barcode))
 	}
-	e.Write(fmt.Sprintf("%v", barcode))
+	//e.Write(fmt.Sprintf("%v", barcode))
 }
 
 // used to send graphics headers
